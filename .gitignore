@@ -2,6 +2,8 @@
 .Rhistory
 .RData
 .Ruserdata
+bigdata-lecture.Rproj
 _*
 data/*
-
+slides/html/
+slides/pdf/
