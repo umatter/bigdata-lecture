@@ -1,0 +1,436 @@
+---
+title: "Big Data Analytics"
+subtitle: 'Lecture 10: Regression Analysis and Categorization with Spark and R '
+author: "Prof. Dr. Ulrich Matter"
+output:
+  ioslides_presentation:
+    css: ../style/ioslides_unilu.css
+    template: ../style/nologo_template.html
+  beamer_presentation: default
+logo: ../img/logo_unilu2.png
+bibliography: ../references/bigdata.bib
+---
+
+
+
+```{r set-options, echo=FALSE, cache=FALSE}
+options(width = 100)
+library(knitr)
+```
+
+## Goals for this session
+
+- Be familiar with the basic `sparklyr` regression framework
+- Understand how to write analysis scripts with `sparklyr`
+
+
+# Linear Regression with Spark
+
+## Simple linear regression analysis 
+
+**Point of reference: simple R**
+
+```{r warning=FALSE, message=FALSE}
+# flights_r <- collect(flights) # very slow!
+flights_r <- data.table::fread("../data/flights.csv", nrows = 300) 
+```
+
+Now we run a simple linear regression (OLS) and show the summary output.
+
+```{r}
+# specify the linear model
+model1 <- arr_delay ~ dep_delay + distance
+# fit the model with OLS
+fit1 <- lm(model1, flights_r)
+# compute t-tests etc.
+summary(fit1)
+```
+
+
+## Regression analysis with `sparklyr`
+
+**Set up**
+
+
+```{r message=FALSE, warning=FALSE, eval=FALSE}
+library(sparklyr)
+
+# connect with default configuration
+sc <- spark_connect(master="local")
+```
+
+**Load data to Spark cluster**
+
+```{r message=FALSE, warning=FALSE, eval=FALSE}
+# load data to spark
+flights_spark <- copy_to(sc, flights_r, "flights_spark")
+```
+
+
+## Regression analysis with `sparklyr`: ml module
+
+
+```{r message=FALSE, warning=FALSE, eval=FALSE}
+# fit the model
+fit1_spark <- ml_linear_regression(flights_spark, formula = model1)
+# compute summary stats
+summary(fit1_spark)
+```
+
+```{}
+Deviance Residuals:
+    Min      1Q  Median      3Q     Max 
+-42.386  -9.965  -1.911   9.866  48.024 
+
+Coefficients:
+  (Intercept)     dep_delay      distance 
+-0.1826622687  0.9895529018  0.0001139616 
+
+R-Squared: 0.9172
+Root Mean Squared Error: 15.42
+```
+
+
+## Regression analysis with `sparklyr`: `spark_apply()`
+
+Alternatively, we can use the `spark_apply()` function to run the regression analysis in R via the original R `lm()` function.
+
+
+```{r message=FALSE, warning=FALSE, eval=FALSE}
+
+# fit the model
+spark_apply(flights_spark, 
+            function(df){
+              broom::tidy(lm(arr_delay ~ dep_delay + distance, df))},
+            names = c("term", 
+                      "estimate", 
+                      "std.error", 
+                      "statistic", 
+                      "p.value")
+    )
+```
+
+```{}
+# Source: spark<?> [?? x 5]
+  term         estimate std.error statistic   p.value
+  <chr>           <dbl>     <dbl>     <dbl>     <dbl>
+1 (Intercept) -0.183      1.68      -0.109  9.13e-  1
+2 dep_delay    0.990      0.0173    57.3    1.63e-162
+3 distance     0.000114   0.00124    0.0920 9.27e-  1
+```
+
+
+## Regression analysis with `sparklyr`: `parsnip`
+
+
+```{r message=FALSE, warning=FALSE, eval=FALSE}
+library(tidymodels)
+library(parsnip)
+
+# simple local linear regression example from above
+# via tidymodels/parsnip
+fit1 <- fit(linear_reg(engine="lm"), model1, data=flights_r)
+tidy(fit1)
+
+
+```
+
+```{}
+# A tibble: 3 × 5
+  term         estimate std.error statistic   p.value
+  <chr>           <dbl>     <dbl>     <dbl>     <dbl>
+1 (Intercept) -0.183      1.68      -0.109  9.13e-  1
+2 dep_delay    0.990      0.0173    57.3    1.63e-162
+3 distance     0.000114   0.00124    0.0920 9.27e-  1
+```
+
+```{r message=FALSE, warning=FALSE, eval=FALSE}
+# run the same on Spark 
+fit1_spark <- fit(linear_reg(engine="spark"), model1, data=flights_spark)
+tidy(fit1_spark)
+```
+
+```{}
+# A tibble: 3 × 5
+  term         estimate std.error statistic   p.value
+  <chr>           <dbl>     <dbl>     <dbl>     <dbl>
+1 (Intercept) -0.183      1.68      -0.109  9.13e-  1
+2 dep_delay    0.990      0.0173    57.3    1.63e-162
+3 distance     0.000114   0.00124    0.0920 9.27e-  1
+```
+
+
+
+# Machine Learning for Classification
+
+
+## Data and background
+
+- Classification problem discussed in @varian_2014: predicting Titanic survivors. The data for this exercise can be downloaded from here: [http://doi.org/10.3886/E113925V1](http://doi.org/10.3886/E113925V1). 
+- Build on `sparklyr`, `tidymodels`, and `parsnip`.
+- Aim: compare performance of different ML algorithms.
+
+## Data and background
+
+```{r eval=FALSE}
+# load into R, select variables of interest, remove missing
+titanic_r <- read.csv("../data/titanic3.csv")
+titanic_r <- na.omit(titanic_r[, c("survived",
+                           "pclass",
+                           "sex",
+                           "age",
+                           "sibsp",
+                           "parch")])
+titanic_r$survived <- ifelse(titanic_r$survived==1, "yes", "no")
+```
+
+## Split into training and test datasets
+
+```{r eval=FALSE}
+library(rsample)
+
+# split into training and test set
+titanic_r <- initial_split(titanic_r)
+ti_training <- training(titanic_r)
+ti_testing <- testing(titanic_r)
+```
+
+Transfer to the Spark cluster
+
+```{r eval=FALSE}
+# load data to spark
+ti_training_spark <- copy_to(sc, ti_training, "ti_training_spark")
+ti_testing_spark <- copy_to(sc, ti_testing, "ti_testing_spark")
+```
+
+## ML models to compare
+
+- Logistic regression
+- Boosted trees
+- Random forest
+
+## ML models to compare: specification and fit
+
+```{r eval=FALSE}
+# models to be used
+models <- list(logit=logistic_reg(engine="spark", mode = "classification"),
+               btree=boost_tree(engine = "spark", mode = "classification"),
+               rforest=rand_forest(engine = "spark", mode = "classification"))
+# train/fit the models
+fits <- lapply(models, fit, formula=survived~., data=ti_training_spark)
+
+```
+
+
+## Out-of-sample prediction for performance assessment
+
+```{r eval=FALSE}
+# run predictions
+predictions <- lapply(fits, predict, new_data=ti_testing_spark)
+# fetch predictions from Spark, format, add actual outcomes
+pred_outcomes <- 
+     lapply(1:length(predictions), function(i){
+          x_r <- collect(predictions[[i]]) # load into local R environment
+          x_r$pred_class <- as.factor(x_r$pred_class) # format for predictions
+          x_r$survived <- as.factor(ti_testing$survived) # add true outcomes
+          return(x_r)
+     
+})
+
+```
+
+## Compute the accuracy, display results
+
+```{r eval=FALSE}
+acc <- lapply(pred_outcomes, accuracy, truth="survived", estimate="pred_class")
+acc <- bind_rows(acc)
+acc$model <- names(fits)
+acc[order(acc$.estimate, decreasing = TRUE),]
+```
+
+```{}
+# A tibble: 3 × 4
+  .metric  .estimator .estimate model  
+  <chr>    <chr>          <dbl> <chr>  
+1 accuracy binary         0.817 rforest
+2 accuracy binary         0.790 btree  
+3 accuracy binary         0.779 logit  
+```
+
+
+## Check feature importance
+
+```{r eval=FALSE}
+tidy(fits[["btree"]])
+```
+
+```{}
+# A tibble: 5 × 2
+  feature  importance
+  <chr>         <dbl>
+1 age          0.415 
+2 sex_male     0.223 
+3 pclass       0.143 
+4 sibsp        0.120 
+5 parch        0.0987
+```
+
+## Check feature importance
+
+
+```{r eval=FALSE}
+tidy(fits[["rforest"]])
+```
+
+```{}
+# A tibble: 5 × 2
+  feature  importance
+  <chr>         <dbl>
+1 sex_male     0.604 
+2 pclass       0.188 
+3 age          0.120 
+4 sibsp        0.0595
+5 parch        0.0290
+```
+
+
+# Building machine learning pipelines with R and Spark
+
+## Building machine learning pipelines with R and Spark
+
+- Spark provides a framework to implement machine learning pipelines called [ML Pipelines](https://spark.apache.org/docs/latest/ml-pipeline.html).
+- `sparklyr` provides a straightforward interface to ML Pipelines that allows implementing and testing the entire ML workflow in R and then easily deploying the final pipeline to a Spark cluster. 
+
+## Tutorial: E-commerce conversion prediction (Google Analytics)
+
+- Data: Google Analytics data from the Google Merchandise Shop
+- Lasso to find a set of important predictors for purchase decisions
+
+
+
+## Set up and data import
+
+```{r, message=FALSE, warning=FALSE, eval=FALSE}
+# load packages
+library(sparklyr)
+library(dplyr)
+
+# fix vars
+INPUT_DATA <- "../data/ga.csv"
+
+```
+
+```{r message=FALSE, eval=FALSE}
+# import to local R session, prepare raw data
+ga <- na.omit(read.csv(INPUT_DATA))
+#ga$purchase <- as.factor(ifelse(ga$purchase==1, "yes", "no"))
+# connect to, and copy the data to the local cluster
+sc <- spark_connect(master = "local")
+ga_spark <- copy_to(sc, ga, "ga_spark", overwrite = TRUE)
+```
+
+
+## Building the pipeline
+
+- The pipeline object is initialized via `ml_pipeline()`. 
+- Model specification (the formula): `ft_r_formula()`.
+- Add the model/ML algorithm with `ml_logistic_regression()`. 
+- Set the penalization parameters via `elastic_net_param` (with `alpha=1`, we get the lasso).
+
+## Building the pipeline
+
+
+```{r eval=FALSE}
+
+# ml pipeline
+ga_pipeline <- 
+     ml_pipeline(sc) %>%
+     ft_string_indexer(input_col="city", 
+                       output_col="city_output",
+                       handle_invalid = "skip") %>%
+     ft_string_indexer(input_col="country", 
+                       output_col="country_output",
+                       handle_invalid = "skip") %>%
+     ft_string_indexer(input_col="source", 
+                       output_col="source_output",
+                       handle_invalid = "skip") %>%
+     ft_string_indexer(input_col="browser", 
+                       output_col="browser_output",
+                       handle_invalid = "skip") %>%
+     ft_r_formula(purchase ~ .) %>% 
+     ml_logistic_regression(elastic_net_param = list(alpha=1))
+     
+```
+
+## Add parallelized cross-validation
+
+```{r eval=FALSE}
+# specify the hyperparameter grid
+# (parameter values to be considered in optimization)
+ga_params <- list(logistic_regression=list(max_iter=80))
+
+# create the cross-validator object
+set.seed(1)
+cv_lasso <- ml_cross_validator(sc,
+                         estimator=ga_pipeline,
+                         estimator_param_maps = ga_params,
+                         ml_binary_classification_evaluator(sc),
+                         num_folds = 30, 
+                         parallelism = 8)
+
+# train/fit the model
+cv_lasso_fit <- ml_fit(cv_lasso, ga_spark) 
+# note: this takes several minutes to run on a local machine (1 Spark node, 8 cores)
+```
+
+## Inspect the performance and process the results
+
+```{r eval=FALSE}
+
+# pipeline summary 
+# cv_lasso_fit
+# average performance
+cv_lasso_fit$avg_metrics_df
+
+```
+
+```{}
+  areaUnderROC max_iter_1
+1    0.8666304         80
+```
+
+
+## Save/Load the ML pipeline
+
+
+```{r eval=FALSE}
+# save the entire pipeline/fit
+ml_save(
+  cv_lasso_fit,
+  "ga_cv_lasso_fit",
+  overwrite = TRUE
+)
+
+
+```
+
+To reload the pipeline later on, run `ml_load(sc, "ga_cv_lasso_fit")`.
+
+
+
+
+
+
+
+
+
+## References {.smaller}
+
+<style>
+slides > slide { overflow: scroll; }
+slides > slide:not(.nobackground):after {
+  content: '';
+}
+</style>
+
+

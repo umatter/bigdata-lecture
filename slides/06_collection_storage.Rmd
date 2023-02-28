@@ -4,9 +4,10 @@ subtitle: "Data Collection and Data Storage"
 author: "Prof. Dr. Ulrich Matter"
 output:
   ioslides_presentation:
-    css: ../style/ioslides.css
+    css: ../style/ioslides_unilu.css
     template: ../style/nologo_template.html
-logo: ../img/logo.png
+  beamer_presentation: default
+logo: ../img/logo_unilu2.png
 bibliography: ../references/bigdata.bib
 ---
 
@@ -19,7 +20,7 @@ library(knitr)
 
 # Updates
 
-## Goals for today
+## Goals this session
 
 - Get to know a simple workflow for data collection
 - Understand the basics of RDBMS. Why "efficient"? Useful for which situations?
@@ -27,6 +28,15 @@ library(knitr)
 - R skills: Connect SQLite with R (locally).
 - Cloud computing: Know how to set up a MySQL DB on AWS RDS.
 - Know the very basics of data warehouses (example: BigQuery) and data lakes (example: AWS S3)
+
+# Data Pipeline
+
+## Data Pipeline  {data-background=#ffffff}
+
+```{r datapipeline, echo=FALSE, out.width = "90%", fig.align='center',  purl=FALSE}
+include_graphics("../img/data_pipeline.png")
+```
+
 
 # Data Collection and Data Storage
 
@@ -39,25 +49,21 @@ library(knitr)
 - The following short R-script automates the downloading of all available trip-record files. *NOTE*: Downloading all files can take several hours and will occupy over 200GB!
 
 ```{r eval=FALSE}
-#################################
-# Fetch all TLC trip recrods
+# Fetch all TLC trip records
 # Data source: 
 # https://www1.nyc.gov/site/tlc/about/tlc-trip-record-data.page
-# Input: Monthly csv files from urls
-# Output: one large csv file
-# UM, St. Gallen, January 2019
-#################################
+# Input: Monthly Parquet files from urls
 
 # SET UP -----------------
 
-# load packages
-library(data.table)
-library(rvest)
-library(httr)
+# packages
+library(R.utils) # to create directories from within R
 
 # fix vars
-BASE_URL <- "https://s3.amazonaws.com/nyc-tlc/trip+data/yellow_tripdata_2018-01.csv"
-OUTPUT_PATH <- "data/tlc_trips.csv"
+BASE_URL <- "https://d37ci6vzurychx.cloudfront.net/trip-data/"
+FILE <- "yellow_tripdata_2018-01.parquet"
+URL <- paste0(BASE_URL, FILE)
+OUTPUT_PATH <- "data/tlc_trips/"
 START_DATE <- as.Date("2009-01-01")
 END_DATE <- as.Date("2018-06-01")
 
@@ -65,32 +71,79 @@ END_DATE <- as.Date("2018-06-01")
 # BUILD URLS -----------
 
 # parse base url
-base_url <- gsub("2018-01.csv", "", BASE_URL)
+base_url <- gsub("2018-01.parquet", "", URL)
 # build urls
 dates <- seq(from= START_DATE,
                    to = END_DATE,
                    by = "month")
 year_months <- gsub("-01$", "", as.character(dates))
-data_urls <- paste0(base_url, year_months, ".csv")
+data_urls <- paste0(base_url, year_months, ".parquet")
+data_paths <- paste0(OUTPUT_PATH, year_months, ".parquet")
 
 # FETCH AND STACK CSVS ----------------
 
-# download, parse all files, write them to one csv
-for (url in data_urls) {
+mkdirs(OUTPUT_PATH)
+# download all csvs in the data range
+for (i in 1:length(data_urls)) {
      
-     # download to temporary file
-     tmpfile <- tempfile()
-     download.file(url, destfile = tmpfile)
-     
-     # parse downloaded file, write to output csv, remove tempfile
-     csv_parsed <- fread(tmpfile)
-     fwrite(csv_parsed,
-            file =  OUTPUT_PATH,
-            append = TRUE)
-     unlink(tmpfile)
-     
+     # download to disk
+     download.file(data_urls[i], data_paths[i])
 }
 
+
+```
+
+
+
+## Stack/combine raw source files
+
+- **Aim**: have one CSV file with all the data.
+- **Approach**: combine the downloaded Parquet files into one compressed CSV file.
+- We do this with the `arrow` package, an R interface to **Apache Arrow** (a platform to work with large-scale columnar data).
+
+## Stack/combine raw source files
+
+We start by installing the `arrow` package\index{arrow package}  in the following way.
+
+```{r eval=FALSE}
+# install arrow
+Sys.setenv(LIBARROW_MINIMAL = "false") # to enable working with compressed files
+install.packages("arrow") # might take a while
+
+```
+
+## Stack/combine raw source files
+
+
+```{r message=FALSE, warning=FALSE}
+
+# SET UP ---------------------------
+
+# load packages
+library(arrow)
+library(data.table)
+library(purrr)
+
+# fix vars
+INPUT_PATH <- "../data/tlc_trips/"
+OUTPUT_FILE <- "../data/tlc_trips.parquet"
+OUTPUT_FILE_CSV <- "../data/tlc_trips.csv"
+
+# list of paths to downloaded Parquet files
+all_files <- list.files(INPUT_PATH, full.names = TRUE)
+
+# LOAD, COMBINE, STORE ----------------------
+
+# read Parquet files
+all_data <- lapply(all_files, read_parquet, as_data_frame = FALSE)
+
+# combine all arrow tables into one
+combined_data <- lift_dl(concat_tables)(all_data)
+
+# write combined dataset to csv file
+write_csv_arrow(combined_data,
+                file = OUTPUT_FILE_CSV, 
+                include_header = TRUE)
 
 ```
 
@@ -507,15 +560,16 @@ unlink("../data/air.sqlite")
 
 
 ```{r eval=FALSE}
-# documents raw data processing
-
 # load packages, credentials
+library(bigrquery)
 library(data.table)
 library(DBI)
 
 # fix vars
-BILLING <- "onlinemedia-slant" # the project ID on BigQuery (billing must be enabled)
-PROJECT <- "bigquery-public-data" # the project name on BigQuery
+# the project ID on BigQuery (billing must be enabled)
+BILLING <- "bda-examples" 
+# the project name on BigQuery
+PROJECT <- "bigquery-public-data" 
 DATASET <- "google_analytics_sample"
 
 # connect to DB on BigQuery
@@ -526,26 +580,22 @@ con <- dbConnect(
      billing = BILLING
 )
 
-
 ```
 
 ## A simple example: run queries on BigQuery
 
 ```{r eval=FALSE}
-
 # run query
-#query <- "SELECT * FROM `bigquery-public-data.google_analytics_sample.ga_sessions_20170801`"
 query <-
 "
-SELECT  totals.visits, totals.transactions, trafficSource.source, device.browser, device.isMobile, geoNetwork.city, geoNetwork.country, channelGrouping
-  FROM
-    `bigquery-public-data.google_analytics_sample.ga_sessions_*`
-  WHERE
-    _TABLE_SUFFIX BETWEEN '20160101'
-    AND '20171231';
+SELECT DISTINCT trafficSource.source AS origin,
+COUNT(trafficSource.source) AS no_occ
+FROM `bigquery-public-data.google_analytics_sample.ga_sessions_20170801`
+GROUP BY trafficSource.source
+ORDER BY no_occ DESC;
 "
-
 ga <- as.data.table(dbGetQuery(con, query, page_size=15000))
+head(ga)
 ```
 
 
@@ -594,6 +644,139 @@ put_object(
 ```
 
 
+## More than just simple storage: S3 + Amazon Athena
+
+- **Amazon Athena**: interesting approach to combine the concept of a data lake with the concept of a data warehouse.
+- Amazon Athena can directly be used to query/analyze the data stored in the simple storage service (S3). 
+- We will rely on via the `RJDBC`-package to query data from S3 via Athena.
+
+## S3 + Amazon Athena set up
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# load packages
+library(DBI)
+library(aws.s3)
+
+# credentials and region
+AWS_ACCESS_KEY_ID <- read.csv("../../BigData/_keys/umatter_accessKeys.csv")[,1]
+AWS_ACCESS_KEY <- read.csv("../../BigData/_keys/umatter_accessKeys.csv")[,2]
+REGION <- "eu-central-1"
+
+```
+
+
+```{r eval=FALSE}
+# SET UP -------------------------
+
+# load packages
+library(DBI)
+library(aws.s3)
+# aws credentials with Athena and S3 rights and region
+AWS_ACCESS_KEY_ID <- "YOUR_KEY_ID"
+AWS_ACCESS_KEY <- "YOUR_KEY"
+REGION <- "eu-central-1"
+
+```
+
+```{r}
+# establish AWS connection
+Sys.setenv("AWS_ACCESS_KEY_ID" = AWS_ACCESS_KEY_ID,
+           "AWS_SECRET_ACCESS_KEY" = AWS_ACCESS_KEY,
+           "AWS_DEFAULT_REGION" = REGION)
+```
+
+
+## S3 + Amazon Athena set up
+
+```{r eval=FALSE}
+OUTPUT_BUCKET <- "bda-athena"
+put_bucket(OUTPUT_BUCKET, region="us-east-1")
+```
+
+
+## Query S3 with Amazon Athena
+
+```{r message=FALSE, warning=FALSE }
+
+# load packages
+library(RJDBC)
+library(DBI)
+
+# download Athena JDBC driver
+URL <- "https://s3.amazonaws.com/athena-downloads/drivers/JDBC/"
+VERSION <- "AthenaJDBC_1.1.0/AthenaJDBC41-1.1.0.jar"
+DRV_FILE <- "AthenaJDBC41-1.1.0.jar"
+download.file(paste0(URL,VERSION), destfile = DRV_FILE)
+
+# connect to JDBC
+athena <- JDBC(driverClass="com.amazonaws.athena.jdbc.AthenaDriver", 
+            DRV_FILE, 
+            identifier.quote="'")
+# connect to Athena
+con <- dbConnect(athena, 
+                 'jdbc:awsathena://athena.us-east-1.amazonaws.com:443/',
+                 s3_staging_dir="s3://bda-athena",
+                 user=AWS_ACCESS_KEY_ID,
+                 password=AWS_ACCESS_KEY)
+
+```
+
+## Query S3 with Amazon Athena
+
+Querying S3 via Athena requires the creation of an *external table* from the data stored on S3.
+
+```{r eval=FALSE}
+query_create_table <-
+"
+CREATE EXTERNAL TABLE default.trips (
+  `vendor_name` string,
+  `Trip_Pickup_DateTime` string,
+  `Trip_Dropoff_DateTime` string,
+  `Passenger_Count` int,
+  `Trip_Distance` double,
+  `Start_Lon` double,
+  `Start_Lat` double,
+  `Rate_Code` string,
+  `store_and_forward` string,
+  `End_Lon` double,
+  `End_Lat` double,
+  `Payment_Type` string,
+  `Fare_Amt` double,
+  `surcharge` double,
+  `mta_tax` string,
+  `Tip_Amt` double,
+  `Tolls_Amt` double,
+  `Total_Amt` double
+)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ','
+STORED AS TEXTFILE
+LOCATION 's3://tlc-trips/analytic_data/'
+"
+dbSendQuery(con, query_create_table)
+```
+
+
+## Query S3 with Amazon Athena
+
+Run a test query to verify the table.
+
+```{r}
+test_query <-
+"
+SELECT * 
+FROM default.trips
+LIMIT 10
+"
+test <- dbGetQuery(con, test_query)
+dim(test)
+```
+
+Finally, close the connection.
+
+```{r}
+dbDisconnect(con)
+```
 
 
 

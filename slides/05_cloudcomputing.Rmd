@@ -4,9 +4,10 @@ subtitle: 'Lecture 5:<br>Cloud Computing'
 author: "Prof. Dr. Ulrich Matter"
 output:
   ioslides_presentation:
-    css: ../style/ioslides.css
+    css: ../style/ioslides_unilu.css
     template: ../style/nologo_template.html
-logo: ../img/logo.png
+  beamer_presentation: default
+logo: ../img/logo_unilu2.png
 bibliography: ../references/bigdata.bib
 ---
 
@@ -20,7 +21,7 @@ library(knitr)
 # Updates
 
 
-## Goals for today:
+## Goals for this session
 
 - Know what 'cloud computing' is, and what it is used for.
 - Know how to work with RStudio-Server on an *AWS EC2* instance.
@@ -77,23 +78,16 @@ include_graphics("../img/03_harddrive.jpg")
 - *Scale up ('vertical scaling')*
 - *Scale out ('horizontal scaling')*
 
-## 'The Cloud'
+## 'The Cloud'  {data-background=#ffffff}
 
 
-```{r cloud, echo=FALSE, out.width = "70%", fig.align='center', purl=FALSE}
-include_graphics("../img/07_cloud.png")
+```{r cloud, echo=FALSE, out.width = "85%", fig.align='center', purl=FALSE}
+include_graphics("../img/computing_environment.png")
 ```
 
 
 
 
-
-## The Cloud: Scaling Up
-
-
-```{r scaleup, echo=FALSE, out.width = "20%", fig.align='center', purl=FALSE}
-include_graphics("../img/07_server.png")
-```
 
 
 ## The Cloud: Scaling Up
@@ -118,11 +112,6 @@ include_graphics("../img/07_server.png")
 
 
 ## The Cloud: Scaling Out
-
-
-```{r scaleout4, echo=FALSE, out.width = "20%", fig.align='center', purl=FALSE}
-include_graphics("../img/07_server.png")
-```
 
 
 ```{r scaleout5, echo=FALSE, out.width = "20%", fig.align='center', purl=FALSE}

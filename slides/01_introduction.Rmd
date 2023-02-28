@@ -1,12 +1,13 @@
 ---
 title: "Big Data Analytics"
-subtitle: "Lecture 1: Introduction, Big Data Econometrics"
 author: "Prof. Dr. Ulrich Matter"
+subtitle: 'Lecture 1: Introduction, Big Data Econometrics'
 output:
   ioslides_presentation:
-    css: ../style/ioslides.css
+    css: ../style/ioslides_unilu.css
     template: ../style/nologo_template.html
-logo: ../img/logo.png
+  beamer_presentation: default
+logo: ../img/logo_unilu2.png
 bibliography: ../references/bigdata.bib
 ---
 
@@ -93,9 +94,18 @@ include_graphics("../img/01_its_hard.jpeg")
 
 ## 'Learn Big Data'?
 
-```{r landscape, echo=FALSE, out.width = "90%", fig.align='center', purl=FALSE, fig.cap="'Big Data Landscape (2019)', source: http://mattturck.com"}
-include_graphics("https://mattturck.com/wp-content/uploads/2019/06/2019_Matt_Turck_Big_Data_Landscape_2019_Thumb.png")
+```{r landscape, echo=FALSE, out.width = "90%", fig.align='center', purl=FALSE, fig.cap="'The 2023 MAD', source: https://mad.firstmarkcap.com/"}
+include_graphics("../img/mad2023.png")
 ```
+
+
+## 'Learn Big Data'?
+
+```{r cover, echo=FALSE, out.width = "50%", fig.align='center', purl=FALSE}
+include_graphics("../img/cover.jpg")
+```
+
+
 
 
 ## Domains Affected
@@ -143,26 +153,33 @@ include_graphics("https://mattturck.com/wp-content/uploads/2019/06/2019_Matt_Tur
 
 ## Schedule
 
+(on OLAT)
+
+```{r schedule, echo=FALSE, out.width = "33%", fig.align='center', purl=FALSE}
+include_graphics("../img/schedule_unilu.png")
+```
 
 
-## Schedule {.smaller}
 
- 1. *Introduction:Introduction, Big Data Econometrics. BDA book: Part I*
- 2. Software/Tools, Efficient R Programming. BDA book: Chapter 4
- 3. Hardware: Computing Resources. BDA book: Chapter 5
- 4. Hardware: Distributed Systems. BDA book: Chapter 6
- 5. Cloud Computing. BDA book: Chapter 7
- 6. Big Data Compilation and Storage. BDA book: Chapter 8
- 7. Cleaning/Preparation. BDA book: Chapter 9
- 8. Aggregation/Descriptives/Visualization. BDA book: Chapters 10 and 11.1-11.2
- 9. Visualization: GIS. BDA book: Chapter 11.3-11.4
- 10. Project Presentations.
- 11. Project Presentations; Q&A.
- 
+
+<!-- ## Schedule {.smaller} -->
+
+<!--  1. *Introduction:Introduction, Big Data Econometrics. BDA book: Part I* -->
+<!--  2. Software/Tools, Efficient R Programming. BDA book: Chapter 4 -->
+<!--  3. Hardware: Computing Resources. BDA book: Chapter 5 -->
+<!--  4. Hardware: Distributed Systems. BDA book: Chapter 6 -->
+<!--  5. Cloud Computing. BDA book: Chapter 7 -->
+<!--  6. Big Data Compilation and Storage. BDA book: Chapter 8 -->
+<!--  7. Cleaning/Preparation. BDA book: Chapter 9 -->
+<!--  8. Aggregation/Descriptives/Visualization. BDA book: Chapters 10 and 11.1-11.2 -->
+<!--  9. Visualization: GIS. BDA book: Chapter 11.3-11.4 -->
+<!--  10. Project Presentations. -->
+<!--  11. Project Presentations; Q&A. -->
+
 
 ## Examination
 
-- You will be working in *groups of four (or three)* and conduct a *big data analytics project*.
+- You will be usually working in *groups of four (or three)* and conduct a *big data analytics project*.
 - You will find a *"large" data set (min. 2GB)* to work with and pose *1-2 relevant research questions*.
 - You will use the techniques learned in this course to handle and analyze the large data set in order to provide *empirical answers* to your research question.
 - The output of this exercise has two parts:
@@ -176,30 +193,22 @@ include_graphics("https://mattturck.com/wp-content/uploads/2019/06/2019_Matt_Tur
 - Group size: 4 (or 3) students.
 - "Take‐home exercises"/research report: Application of basic concepts in R when working with big data. Conceptual questions related to the application.
 
-<center> *Register your group here: * </center>
-<center> *Hand in on:* </center>
- 
+<center> *Submission deadline: 02.06.2023, 23:59* </center>
+
  
 ## Examination: Part II
 - Decentral
 - Group examination: presentation + code (all given the same grades) (40%)
 
-<center> *12 May 2022, 08:15-10:00* </center>
-<center> *19 May 2022, 08:15-10:00* </center>
+<center> *22.05.2023, 14:15 - 18:00* </center>
 
  
 # Approach
 
----
+## Approach Overview  {data-background=#ffffff}
 
-```{r rlogo, echo=FALSE, out.width = "70%", fig.align='center', purl=FALSE}
-include_graphics("../img/01_rlogo2.png")
-```
-
----
- 
-```{r rstudio, echo=FALSE, out.width = "60%", fig.align='center', purl=FALSE}
-include_graphics("../img/01_rstudio.png")
+```{r approaches, echo=FALSE, out.width = "70%", fig.align='center', purl=FALSE, background="white"}
+include_graphics("../img/I_approaches.png")
 ```
 
 
@@ -220,7 +229,7 @@ include_graphics("../img/01_rstudio.png")
 
 ## Prerequisites?
   - Basic R programming skills.
-  - Build on concepts taught in Data Analytics I (and more basic econometrics courses).
+  - Preparatory courses, see Prerequisites here: https://portal.unilu.ch/details?code=FS231107
     - Brief review of concepts, but no additional introduction.
 
 
@@ -228,14 +237,15 @@ include_graphics("../img/01_rstudio.png")
 
 ## Literature
 
-### Course Book
+**Course Book**
+
 [Matter, Ulrich (2023): Big Data Analytics—A guide to data science practitioners making the transition to Big Data](https://umatter.github.io/BigData/)
 
 
 
 ## Literature
 
-### Additional reading
+**Additional reading**
 
 [Wickham, Hadley (2019): Advanced R. Second Edition, Boca Raton, FL: CRC Press](https://adv-r.hadley.nz/)
 
@@ -247,7 +257,8 @@ include_graphics("../img/01_rstudio.png")
 
 
 ## Notes, Slides, Code, et al.
-- StudyNet: slides to download, links to other resources/downloads.
+
+- Compiled slides to download, links to other resources/downloads are provided online.
 - [github.com/umatter/bigdata-lecture](https://github.com/umatter/bigdata-lecture)
 <!-- - [StudyNet/Canvas]() -->
 

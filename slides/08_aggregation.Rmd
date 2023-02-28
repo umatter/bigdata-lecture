@@ -1,0 +1,395 @@
+---
+title: "Big Data Analytics"
+subtitle: 'Lecture 8: Aggregation and Visualization'
+author: "Prof. Dr. Ulrich Matter"
+output:
+  ioslides_presentation:
+    css: ../style/ioslides_unilu.css
+    template: ../style/nologo_template.html
+  beamer_presentation: default
+logo: ../img/logo_unilu2.png
+bibliography: ../references/bigdata.bib
+---
+
+
+
+```{r set-options, echo=FALSE, cache=FALSE}
+options(width = 100)
+library(knitr)
+```
+
+
+<!-- # Updates -->
+
+
+
+<!-- ## Examination Part I: Timeline of take-home exercises -->
+
+<!-- - Examination handed out via GitHub (Classroom): 7 May 2020 -->
+<!-- - Deadline to hand in results: *8 June 2020 (16:00)* -->
+
+
+<!-- ## Format of take-home exercises -->
+
+<!-- - GitHub classroom group assignment.  -->
+<!-- - Basic starter code handed out as repository. -->
+<!-- - A data analytics project based on a large data set, including the entire data pipeline. -->
+<!-- - Tasks -->
+<!--      - Instructions in README -->
+<!--      - Improve efficiency of given code -->
+<!--      - Extend code: complete specific tasks -->
+<!--      - Explain/document procedure (conceptual understanding) -->
+<!-- - 'Product': the repository, including R code, and a report in R markdown. -->
+
+<!-- ## Examination Part II: Group Projects/Presentations -->
+<!-- - Groups formed decentrally (same groups as for take-home exercises). -->
+<!-- - Own research question, find a data set, think of approach/strategy, implement in R, presentation of results as Rmd/R-presentation recorded in a 'screencast'. -->
+<!-- - Hand in screencast via Canvas/Studynet (assignment is already open), commit code/rmd to GitHub-classroom (initial group formation assignment). -->
+
+<!-- ## Register in GitHub Classroom -->
+
+<!-- - *By the end of the month, teams must be set!* -->
+<!-- - Please register, if you have not done so yet and join your team in GitHub Classroom! -->
+<!-- - Still problems finding a team? Use the *Q&A Section in Canvas*! In case of emergencies, email me: ulrich.matter@unisg.ch -->
+
+## Goals for this session
+- Know the basics of data preparation with the `ff`-package (out-of-memory)
+- Get familiar with the `data.table`-package for data preparation in memory.
+- Get familiar with the concept of *Grammar of Graphics*.
+- Know the basics of visualization with `ggplot2`.
+
+
+# Recap 
+ 
+## Out-of-memory strategies
+
+- Chunked data files on disk
+- Memory-mapped files and shared memory
+
+## Out-of-memory strategies
+
+- Chunked data files on disk: `ff`-package
+- Memory-mapped files and shared memory: `bigmemory`-package
+
+
+# Aggregation and Visualization
+
+## Setting: NYC yellow caps
+
+- Data source: NYC Taxi & Limousine Commission (TLC)
+- Data on all trip records including pick-up and drop-off times/locations.
+     - Trip-level observations
+     - Amount of fare paid
+     - Amount of tip paid, etc.
+- All raw data: over 200GB 
+     - *Here: First 1 million observations (in January 2009)*
+
+
+
+# Data aggregation with chunked data files
+
+## Data aggregation: The 'split-apply-combine' strategy
+
+- Background: Compute a statistic for specific groups (e.g. women vs men,  etc.)
+
+1. Split the data into subsamples (e.g. one for women, one for men)
+2. Compute the statistic for each of the subsamples.
+3. Combine all results in one table.
+
+
+## Preparation: Data import and cleaning
+
+First, we read the raw taxi trips records into R with the `ff`-package.
+
+```{r message=FALSE}
+# load packages
+library(ff)
+library(ffbase)
+
+# set up the ff directory (for data file chunks)
+if (!dir.exists("fftaxi")){
+     system("mkdir fftaxi")
+}
+options(fftempdir = "fftaxi")
+
+# import the first one million observations
+taxi <- read.table.ffdf(file = "../data/tlc_trips.csv",
+                        sep = ",",
+                        header = TRUE,
+                        next.rows = 100000,
+                        # colClasses= col_classes,
+                        nrows = 1000000
+                        )
+
+```
+
+
+## Preparation: Data cleaning
+
+```{r}
+# inspect the factor levels
+levels(taxi$Payment_Type)
+# recode them
+levels(taxi$Payment_Type) <- tolower(levels(taxi$Payment_Type))
+taxi$Payment_Type <- ff(taxi$Payment_Type,
+                        levels = unique(levels(taxi$Payment_Type)),
+                        ramclass = "factor")
+# check result
+levels(taxi$Payment_Type)
+
+```
+
+
+
+
+
+## Aggregation with split-apply-combine
+
+- Goal: a table that shows the average amount of tip paid for each payment-type category. 
+- Approach: `ffdfply()` and `summaryBy()`
+
+
+## Aggregation with split-apply-combine
+
+
+```{r}
+
+# load packages
+library(doBy)
+
+# split-apply-combine procedure on data file chunks
+tip_pcategory <- ffdfdply(taxi,
+                          split = taxi$Payment_Type,
+                          BATCHBYTES = 100000000,
+                          FUN = function(x) {
+                               summaryBy(Tip_Amt~Payment_Type,
+                                         data = x,
+                                         FUN = mean,
+                                         na.rm = TRUE)})
+```
+
+
+## Aggregation with split-apply-combine
+
+Now we can have a look at the resulting summary statistic in the form of a `data.frame()`.
+
+```{r}
+as.data.frame(tip_pcategory)
+```
+
+## Aggregation with split-apply-combine
+
+We add an additional variable `percent_tip` and then repeat the aggregation exercise for this variable.
+
+```{r}
+# add additional column with the share of tip
+taxi$percent_tip <- (taxi$Tip_Amt/taxi$Total_Amt)*100
+
+# recompute the aggregate stats
+tip_pcategory <- ffdfdply(taxi,
+                          split = taxi$Payment_Type,
+                          BATCHBYTES = 100000000,
+                          FUN = function(x) {
+                             # note the difference here
+                               summaryBy(percent_tip~Payment_Type, 
+                                         data = x,
+                                         FUN = mean,
+                                         na.rm = TRUE)})
+# show result as data frame
+as.data.frame(tip_pcategory)
+```
+
+## Cross-tabulation of `ff` vectors
+
+Goal: Get number of observations by covariate-values
+Approach: Cross-tabulatoni with `table.ff()` (`ffbase`-package)
+
+## Cross-tabulation of `ff` vectors
+
+
+```{r}
+table.ff(taxi$Payment_Type)
+```
+
+## Cross-tabulation of `ff` vectors
+
+- What factors are correlated with payment types? 
+- Is payment type associated with the number of passengers in a trip?
+
+## Cross-tabulation of `ff` vectors
+
+```{r}
+# select the subset of observations only containing trips paid by
+# credit card or cash
+taxi_sub <- subset.ffdf(taxi, Payment_Type=="credit" | Payment_Type == "cash")
+taxi_sub$Payment_Type <- ff(taxi_sub$Payment_Type,
+                        levels = c("credit", "cash"),
+                        ramclass = "factor")
+
+# compute the cross tabulation
+crosstab <- table.ff(taxi_sub$Passenger_Count,
+                     taxi_sub$Payment_Type
+                     )
+# add names to the margins
+names(dimnames(crosstab)) <- c("Passenger count", "Payment type")
+# show result
+crosstab
+```
+
+
+## Visualization of cross-tabulations
+
+```{r message=FALSE, warning=FALSE}
+# install.packages(vcd)
+# load package for mosaic plot
+library(vcd)
+
+# generate a mosaic plot
+mosaic(crosstab, shade = TRUE)
+```
+
+
+
+
+## High-speed in-memory data aggregation with `arrow`
+
+**Data import**
+
+```{r warning=FALSE, message=FALSE}
+# load packages
+library(arrow)
+library(dplyr)
+
+# read the CSV file 
+taxi <- read_csv_arrow("../data/tlc_trips.csv", 
+                       as_data_frame = FALSE)
+
+```
+
+
+## High-speed in-memory data aggregation with `arrow`
+
+__Data preparation and 'split-apply-combine'__
+
+```{r}
+
+# clean the categorical variable; aggregate by group
+taxi <- 
+   taxi %>% 
+   mutate(Payment_Type = tolower(Payment_Type))
+```
+
+
+```{r}
+taxi_summary <- 
+   taxi %>%
+   mutate(percent_tip = (Tip_Amt/Total_Amt)*100 ) %>% 
+   group_by(Payment_Type) %>% 
+   summarize(avg_percent_tip = mean(percent_tip)) %>% 
+   collect() 
+```
+
+
+
+## High-speed in-memory data aggregation with `arrow`
+
+__Create cross-tabulation__
+
+
+```{r warning=FALSE, message=FALSE}
+library(tidyr)
+
+# compute the frequencies; pull result into R
+ct <- taxi %>%
+   filter(Payment_Type %in% c("credit", "cash")) %>%
+   group_by(Passenger_Count, Payment_Type) %>%
+   summarize(n=n())%>%
+     collect()
+
+# present as cross-tabulation
+pivot_wider(data=ct, 
+            names_from="Passenger_Count",
+            values_from = "n")
+
+```
+
+
+
+
+
+
+
+# High-speed in-memory data aggregation with `data.table`
+
+## Necessary condition for `data.table`
+
+- Data still fit into RAM
+- Possible with our subsample of 1 million rows (on most modern computers).
+- Unlikely to work well with the full data set (200GB)
+
+
+## Data import
+
+We use the already familiar `fread()` to import the same first million observations from the January 2009 taxi trips records.
+
+```{r message=FALSE, warning=FALSE}
+# load packages
+library(data.table)
+
+# import data into RAM (needs around 200MB)
+taxi <- fread("../data/tlc_trips.csv",
+              nrows = 1000000)
+
+```
+
+## Data preparation
+
+We prepare/clean the data as in the `ff`-approach above.
+
+```{r}
+# clean the factor levels
+taxi$Payment_Type <- tolower(taxi$Payment_Type)
+taxi$Payment_Type <- factor(taxi$Payment_Type,
+                            levels = unique(taxi$Payment_Type))     
+```
+
+
+## `data.table`-syntax for 'split-apply-combine' operations
+
+- With `[]` syntax we index/subset usual `data.frame` objects in R. 
+- When working with `data.table`s, much more can be done in the step of 'subsetting' the frame.
+
+```{r}
+taxi[, mean(Tip_Amt/Total_Amt)]
+```
+
+## `data.table`-syntax for 'split-apply-combine' operations
+
+And we can do the same with 'splitting' the rows first *by* specific groups and apply the function to each batch of observations.
+
+```{r}
+taxi[, .(percent_tip = mean((Tip_Amt/Total_Amt)*100)), by = Payment_Type]
+```
+
+## `data.table`-syntax for cross-tabulations
+
+Similarly we can use `data.table`'s `dcast()` for crosstabulation-like operations.
+
+```{r}
+dcast(taxi[Payment_Type %in% c("credit", "cash")],
+      Passenger_Count~Payment_Type, 
+      fun.aggregate = length,
+      value.var = "vendor_name")
+```
+
+
+## References
+
+<style>
+slides > slide { overflow: scroll; }
+slides > slide:not(.nobackground):after {
+  content: '';
+}
+</style>
+
+

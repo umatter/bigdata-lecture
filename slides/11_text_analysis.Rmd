@@ -1,0 +1,301 @@
+---
+title: "Big Data Analytics"
+subtitle: 'Lecture 11:<br>Large-scale Text Analysis with sparklyr'
+author: "Prof. Dr. Ulrich Matter"
+output:
+  ioslides_presentation:
+    css: ../style/ioslides_unilu.css
+    template: ../style/nologo_template.html
+  beamer_presentation: default
+logo: ../img/logo_unilu2.png
+bibliography: ../references/bigdata.bib
+---
+
+
+
+```{r set-options, echo=FALSE, cache=FALSE}
+options(width = 100)
+library(knitr)
+```
+
+## Goals for this session
+- Understand the basics of how to organize text analysis (concept of NLP pipeline, corpus, etc.)
+- Be able to set up a simple text analysis workflow on Spark with `sparklyr`
+
+## NLP (Natural Language Processing)
+
+
+```{r nlppipeline, echo=FALSE, out.width = "99%", fig.align='center',  purl=FALSE}
+include_graphics("../img/05_nlp_pipeline.jpg")
+```
+
+# Basic Text Analysis with Spark
+
+## Getting started: Import, pre-processing, and word count
+
+- First steps of processing text data for NLP.
+- In the code example, we process Friedrich Schiller's "Wilhelm Tell" (English edition; Project Gutenberg Book ID 2782), which we download from [Project Gutenberg](https://www.gutenberg.org/) by means of the `gutenbergr` package.
+- Example is set up to run on AWS EMR.
+
+## Set up 
+
+We first load the packages and connect the RStudio session to the cluster (if you run this locally, use `spark_connect(master="local")`).
+
+```{r eval=FALSE}
+# load packages
+library(sparklyr)
+library(gutenbergr)
+library(dplyr)
+
+# fix vars
+TELL <- "https://www.gutenberg.org/cache/epub/6788/pg6788.txt"
+
+# connect rstudio session to cluster
+sc <- spark_connect(master = "yarn")
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# install additional packages
+# install.packages("gutenbergr") # to download book texts from Project Gutenberg
+# install.packages("dplyr") # for the data preparatory steps
+# load packages
+library(sparklyr)
+library(gutenbergr)
+library(dplyr)
+# fix vars
+TELL <- "https://www.gutenberg.org/cache/epub/6788/pg6788.txt"
+# connect rstudio session to cluster
+conf <- spark_config()
+conf$`sparklyr.shell.driver-memory` <- "8g"
+sc <- spark_connect(master = "local",
+                    config = conf)
+
+```
+
+## Load data
+
+```{r warning=FALSE, message=FALSE}
+# Data gathering and preparation
+# fetch Schiller's Tell, load to cluster
+tmp_file <- tempfile()
+download.file(TELL, tmp_file)
+raw_text <- readLines(tmp_file)
+tell <- data.frame(raw_text=raw_text)
+tell_spark <- copy_to(sc, tell,
+                      "tell_spark",
+                      overwrite = TRUE)
+
+```
+
+## Basic cleaning of the raw text
+
+```{r warning=FALSE, message=FALSE}
+# data cleaning
+tell_spark <- filter(tell_spark, raw_text!="")
+tell_spark <- select(tell_spark, raw_text)
+tell_spark <- mutate(tell_spark, 
+                     raw_text = regexp_replace(raw_text, "[^0-9a-zA-Z]+", " "))
+
+```
+
+## Split text into words
+
+```{r warning=FALSE, message=FALSE}
+
+# split into words
+tell_spark <- ft_tokenizer(tell_spark, 
+                           input_col = "raw_text",
+                           output_col = "words")
+
+```
+
+## Remove "stopwords"
+
+
+```{r warning=FALSE, message=FALSE}
+
+# remove stop-words
+tell_spark <- ft_stop_words_remover(tell_spark,
+                                    input_col = "words",
+                                    output_col = "words_wo_stop")
+
+```
+
+## Map to vector
+
+```{r warning=FALSE, message=FALSE}
+# unnest words, combine in one row
+all_tell_words <- mutate(tell_spark, 
+               word = explode(words_wo_stop))
+
+# final cleaning
+all_tell_words <- select(all_tell_words, word)
+all_tell_words <- filter(all_tell_words, 2<nchar(word))
+```
+
+## Compute word count
+
+```{r warning=FALSE, message=FALSE}
+# get word count and store result in Spark memory
+compute(count(all_tell_words, word), "wordcount_tell")
+```
+
+## Clean up
+
+
+Finally, we can disconnect the R session from the Spark cluster
+
+```{r}
+spark_disconnect(sc)
+```
+
+
+
+
+
+
+# Natural Language Processing at Scale
+
+## Machine learning with text data 
+
+- `sparknlp` package: `sparklyr` extension for using the [John Snow Labs Spark NLP](https://www.johnsnowlabs.com/spark-nlp) library.
+- Provides access to pre-trained NLP pipelines.
+- Here: run a sentiment analysis of congressional speeches.
+
+## Set up
+
+```{r eval=TRUE, message=FALSE}
+# install from GitHub
+# devtools::install_github("r-spark/sparknlp")
+# load packages
+library(dplyr)
+library(sparklyr)
+library(sparknlp)
+library(sparklyr.nested)
+
+# configuration of local spark cluster
+conf <- spark_config()
+conf$`sparklyr.shell.driver-memory` <- "16g"
+# connect rstudio session to cluster
+sc <- spark_connect(master = "local", 
+                    config = conf)
+```
+
+## Load the data
+
+```{r}
+# LOAD --------------------
+
+# load speeches
+INPUT_PATH_SPEECHES <- "../data/text/speeches/" 
+speeches <- 
+     spark_read_csv(sc,
+                    name = "speeches",
+                    path =  INPUT_PATH_SPEECHES,
+                    delimiter = "|",
+                    overwrite = TRUE) %>% 
+     sample_n(10000, replace = FALSE)  %>% 
+     compute("speeches")
+     
+```
+
+Note: To make the following chunks of code run smoothly and relatively fast on a local Spark installation (for test purposes), we use `sample_n()` for a random draw of 10,000 speeches. 
+
+
+## Sentiment annotation: pipeline
+
+- Sentiment analysis is a fairly common task in NLP, but it is frequently a computationally demanding task with numerous preparatory steps.
+- `sparknlp`  provides a straightforward interface for creating the necessary NLP pipeline and massive scaling on Spark.
+- `nlp_pretrained_pipeline()` loads entire pretrained NLP pipelines. With `"analyze_sentiment"` we select the one for sentiment analysis.
+
+```{r}
+# load the nlp pipeline for sentiment analysis
+pipeline <- nlp_pretrained_pipeline(sc, "analyze_sentiment", "en")
+```
+
+## Sentiment annotation: pipeline input
+
+Feed in the entire speech corpus via the `target` argument and point to the column containing the raw text (here `"speech"`). 
+
+```{r}
+speeches_a <- 
+     nlp_annotate(pipeline,
+                  target = speeches,
+                  column = "speech")
+```
+
+## Fetch and mutate results
+
+```{r}
+# extract sentiment coding per speech
+sentiments <- 
+     speeches_a %>%
+     sdf_select(speech_id, sentiments=sentiment.result) %>% 
+     sdf_explode(sentiments)  %>% 
+     mutate(pos = as.integer(sentiments=="positive"),
+            neg = as.integer(sentiments=="negative"))  %>% 
+     select(speech_id, pos, neg) 
+
+```
+
+(The sentiment of the sentences is extracted for each corresponding speech ID and coded with two additional indicator variables, indicating whether a sentence was classified as positive or negative.)
+
+## Aggregation and visualization
+
+Compute the proportion of sentences with a positive sentiment per speech and export the aggregate sentiment analysis result to the R environment for further processing.
+
+```{r warning=FALSE}
+# aggregate and download to R environment -----
+sentiments_aggr <- 
+     sentiments  %>%
+     select(speech_id, pos, neg) %>%
+     group_by(speech_id) %>%
+     mutate(rel_pos = sum(pos)/(sum(pos) + sum(neg))) %>%
+     filter(0<rel_pos) %>%
+     select(speech_id, rel_pos) %>%
+     sdf_distinct(name = "sentiments_aggr") %>%
+     collect()
+```
+
+```{r eval=FALSE}
+# disconnect from cluster
+spark_disconnect(sc)
+```
+
+## Visualization of results
+
+```{r warning=FALSE}
+# clean
+library(data.table)
+sa <- as.data.table(sentiments_aggr)
+sa[, congress:=substr(speech_id, 1,3)]
+sa[, congress:=gsub("990", "99", congress)]
+sa[, congress:=gsub("980", "98", congress)]
+sa[, congress:=gsub("970", "97", congress)]
+
+# visualize results
+library(ggplot2)
+ggplot(sa, aes(x=as.integer(congress),
+               y=rel_pos,
+               group=congress)) +
+     geom_boxplot() +
+     ylab("Share of sentences with positive tone") +
+     xlab("Congress") +
+     theme_minimal()
+
+```
+
+
+
+
+## References {.smaller}
+
+<style>
+slides > slide { overflow: scroll; }
+slides > slide:not(.nobackground):after {
+  content: '';
+}
+</style>
+
+

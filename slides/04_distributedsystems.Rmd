@@ -4,12 +4,13 @@ subtitle: "Lecture 4:<br>Hardware: Distributed Systems"
 author: "Prof. Dr. Ulrich Matter"
 output:
   ioslides_presentation:
-    css: ../style/ioslides.css
+    css: ../style/ioslides_unilu.css
     template: ../style/nologo_template.html
-logo: ../img/logo.png
-
+  beamer_presentation: default
+logo: ../img/logo_unilu2.png
 bibliography: ../references/bigdata.bib
 ---
+
 
 ```{r set-options, echo=FALSE, cache=FALSE, purl=FALSE}
 options(width = 100)
@@ -20,7 +21,7 @@ library(knitr)
 # Updates
 
 
-## Goals for today
+## Goals for this session
 
 1. Understand what a *distributed system* (basically) is and what it is used for in Big Data Analytics.
 2. Know the very basics of what *MapReduce* and *Hadoop* is.
@@ -32,8 +33,8 @@ library(knitr)
 
 ## Distributed Systems
 
-```{r distributedsystems, echo=FALSE, out.width = "30%", fig.align='center', fig.cap="(ref:distributedsystems) (a), (b): a distributed system. (c): a parallel system.I llustration by Miym (CC BY-SA 3.0).", purl=FALSE}
-include_graphics("../img/distributed_systems_darkscreen.png")
+```{r distributedsystems, echo=FALSE, out.width = "90%", fig.align='center', purl=FALSE}
+include_graphics("../img/distributed_system.jpg")
 ```
 
 
@@ -161,8 +162,8 @@ cat ~/wc_example/*
 
 ##  Spark basics
 
-```{r sparkstack, echo=FALSE, out.width = "60%", fig.align='center', fig.cap= "Basic Spark stack (source: https://spark.apache.org/images/spark-stack.png)", purl=FALSE}
-include_graphics("https://spark.apache.org/images/spark-stack.png")
+```{r sparkstack, echo=FALSE, out.width = "60%", fig.align='center',  purl=FALSE}
+include_graphics("../img/spark_components.jpg")
 ```
 
 ## Spark basics: RDDs

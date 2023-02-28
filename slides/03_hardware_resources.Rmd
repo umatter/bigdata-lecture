@@ -4,11 +4,13 @@ subtitle: 'Lecture 3: Hardware, Computing Resources'
 author: "Prof. Dr. Ulrich Matter"
 output:
   ioslides_presentation:
-    css: ../style/ioslides.css
+    css: ../style/ioslides_unilu.css
     template: ../style/nologo_template.html
-logo: ../img/logo.png
+  beamer_presentation: default
+logo: ../img/logo_unilu2.png
 bibliography: ../references/bigdata.bib
 ---
+
 
 ```{r set-options, echo=FALSE, cache=FALSE}
 options(width = 100)
@@ -18,15 +20,15 @@ library(knitr)
 
 # Updates
 
-## Group projects
+<!-- ## Group projects -->
 
-- Contact me in case of questions regarding topic/data.
-- Next week: GitHub classroom assignment for Group work will open.
-- Please add your team to the list: [https://bit.ly/hsg_bda](https://bit.ly/hsg_bda).
-- *Add a team name!*
+<!-- - Contact me in case of questions regarding topic/data. -->
+<!-- - Next week: GitHub classroom assignment for Group work will open. -->
+<!-- - Please add your team to the list: [https://bit.ly/hsg_bda](https://bit.ly/hsg_bda). -->
+<!-- - *Add a team name!* -->
 
 
-## Goals of today's lecture
+## Goals for this session
 
 - Know the core components of a computer
 - Understand the very basics of information processing on a computer
@@ -50,12 +52,11 @@ GROUP BY year
 
 # Hardware Basics
 
-## Components of a standard computing environment
+## Components of a standard computing environment  {data-background=#ffffff}
 
-&nbsp;
 
-```{r components, echo=FALSE, out.width = "95%", fig.align='center', purl=FALSE}
-include_graphics("../img/03_script-hardware.jpg")
+```{r components, echo=FALSE, out.width = "85%", fig.align='center', purl=FALSE}
+include_graphics("../img/II_computing_environment.png")
 ```
 
 ## Central Processing Unit
@@ -96,7 +97,7 @@ include_graphics("../img/03_harddrive.jpg")
 Two  strategies to scale *hardware*:
 
 - *Scale up ('horizontal scaling')*: Extend the physical capacity of the affected component by building a system with large RAM shared between applications. This sounds like a trivial solution ('if RAM is too small, buy more RAM...'), but in practice it can be very expensive. 
-- *Scale out ('vertical scaling')*: Distribute the workload over several computers (or separate components of a system). 
+- *Scale out ('vertical scaling')*: Distribute the workload over several computers (or separate components of a system; next session). 
 
 ## Too much data?
 
@@ -384,10 +385,10 @@ mem_change(flights <- fread(DATA_PATH))
  - The OS deals with this by using part of the hard disk as *virtual memory*.
  - By explicitly instructing the computer how to use *virtual memory for specific big data tasks*, we can speed things up.
 
----
+## Virtual memory  {data-background=#ffffff}
 
-```{r vm, echo=FALSE, out.width = "60%", fig.align='center', fig.cap= "Virtual memory. Figure by Ehamberg ([CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/))", purl=FALSE}
-include_graphics("../img/03_virtualmemory_dark.png")
+```{r vm, echo=FALSE, out.width = "50%", fig.align='center',  purl=FALSE}
+include_graphics("../img/virtual_memory.png")
 ```
 
 ## Explicitly make use of virtual memory in data analysis
@@ -507,7 +508,7 @@ ctemp <- makeCluster(ncores)
 registerDoSNOW(ctemp)
 
 # prepare loop
-N <- 10000 # just for illustration, the actual code is N <- length(models)
+N <- 10 # just for illustration, the actual code is N <- length(models)
 # run loop in parallel
 pseudo_Rsq <-
   foreach ( i = 1:N, .combine = c) %dopar% {
@@ -534,7 +535,7 @@ models[[which.max(pseudo_Rsq)]]
 
 
 # prepare parallel lapply (based on forking, here clearly faster than foreach)
-N <- 10000 # just for illustration, the actual code is N <- length(models)
+N <- 10 # just for illustration, the actual code is N <- length(models)
 # run parallel lapply
 pseudo_Rsq <- mclapply(1:N,
                        mc.cores = ncores,
@@ -600,11 +601,11 @@ include_graphics("../img/nvidia_geeforce.png")
 - Each multiprocessor unit has several cores.
 - GPUs can perform computations with thousands of threads in parallel.
 
-## GPU characteristics
+## GPU characteristics  {data-background=#ffffff}
 
 
-```{r nvidia_architecture, echo=FALSE, out.width = "40%", fig.align='center', fig.cap= "Typical NVIDIA GPU architecture (illustration and notes by @hernandez_etal2013): The GPU is comprised of a set of Streaming MultiProcessors (SM). Each SM is comprised of several Stream Processor (SP) cores, as shown for the NVIDIA’s Fermi architecture (a). The GPU resources are controlled by the programmer through the CUDA programming model, shown in (b).", purl=FALSE}
-include_graphics("../img/nvidia_gpu.png")
+```{r nvidia_architecture, echo=FALSE, out.width = "90%", fig.align='center', purl=FALSE}
+include_graphics("../img/gpu_details.png")
 ```
 
 ## Challenges to using GPUs for scientific computing
@@ -651,7 +652,6 @@ Prepare for GPU computation.
 
 ```{r}
 # prepare GPU-specific objects/settings
-gpuX <- gpuMatrix(X, type = "float")  # point GPU to matrix (matrix stored in non-GPU memory)
 vclX <- vclMatrix(X, type = "float")  # transfer matrix to GPU (matrix stored in GPU memory)
 ```
 
@@ -665,15 +665,13 @@ Now we run the three examples: 1) using the CPU, 2) computing on the GPU but usi
 gpu_cpu <- bench::mark(
   
   # compute with CPU 
-  cpu <- t(X) %*% X,
+  cpu <-t(X) %*% X,
   
-  # GPU version, GPU pointer to CPU memory (gpuMatrix is simply a pointer)
-  gpu1_pointer <- t(gpuX) %*% gpuX,
-  
-  # GPU version, in GPU memory (vclMatrix formation is a memory transfer)
-  gpu2_memory <- t(vclX) %*% vclX,
+  # GPU version, in GPU memory 
+  # (vclMatrix formation is a memory transfer)
+  gpu <- t(vclX) %*% vclX,
  
-check = FALSE, memory=FALSE, min_iterations = 20)
+check = FALSE, memory = FALSE, min_iterations = 200)
 ```
 
 

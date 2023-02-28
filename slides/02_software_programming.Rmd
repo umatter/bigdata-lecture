@@ -4,11 +4,13 @@ subtitle: 'Lecture 2: Programming with (Big) Data'
 author: "Prof. Dr. Ulrich Matter"
 output:
   ioslides_presentation:
-    css: ../style/ioslides.css
+    css: ../style/ioslides_unilu.css
     template: ../style/nologo_template.html
-logo: ../img/logo.png
+  beamer_presentation: default
+logo: ../img/logo_unilu2.png
 bibliography: ../references/bigdata.bib
 ---
+
 
 ```{r set-options, echo=FALSE, cache=FALSE}
 options(width = 100)
@@ -16,18 +18,25 @@ library(knitr)
 ```
 
 
-# Updates
+<!-- # Updates -->
 
 
-## Group Examinations
+<!-- ## Group Examinations -->
 
-- Make sure to build teams of 4 (3).
-- Register your team (and all members):
-- *Team name*: important for handing out team assignments via GitHub Classroom.
+<!-- - Make sure to build teams of 4 (3). -->
+<!-- - Register your team (and all members): -->
+<!-- - *Team name*: important for handing out team assignments via GitHub Classroom. -->
+
+# Platform: Computing Environment
+
+## Computing environment perspective  {data-background=#ffffff}
+
+```{r whatis, echo=FALSE, out.width = "85%", fig.align='center', purl=FALSE}
+include_graphics("../img/II_computing_environment.png")
+```
 
 
-
-## Goals for today
+## Goals for this session
 
 - Know basic tools to assess performance of an R-program/script.
 - Know the most common tricks to write more efficient R code.
@@ -455,7 +464,7 @@ GROUP BY year LIMIT 6;
 Key take-away: in R, we instruct the computer what to do in order to get the table we want. In SQL we instruct the computer what table we want.
 
 
-The Structured Query Language (SQL) has become a bread-and-butter tool for data analysts and data scientists due to its broad application in systems used to store large amounts of data. While traditionally only encountered in the context of structured data stored in relational database management systems, some versions of it are now also used to query data from data warehouse systems (e.g. Amazon Redshift) and even to query massive amounts (terabytes or even petabytes) of data stored in data lakes (e.g., Amazon Athena). In all of these applications, SQL's purpose (from the data analytics' perspective) is to provide a convenient and efficient way to query data from mass storage for analysis. Instead of importing a CSV file into R and then filtering it in order to get to the analytic data set, we use SQL to express how the analytic data set should look like (which variables and rows should be included).
+<!-- The Structured Query Language (SQL) has become a bread-and-butter tool for data analysts and data scientists due to its broad application in systems used to store large amounts of data. While traditionally only encountered in the context of structured data stored in relational database management systems, some versions of it are now also used to query data from data warehouse systems (e.g. Amazon Redshift) and even to query massive amounts (terabytes or even petabytes) of data stored in data lakes (e.g., Amazon Athena). In all of these applications, SQL's purpose (from the data analytics' perspective) is to provide a convenient and efficient way to query data from mass storage for analysis. Instead of importing a CSV file into R and then filtering it in order to get to the analytic data set, we use SQL to express how the analytic data set should look like (which variables and rows should be included). -->
 
 
 ## Getting started with SQLite

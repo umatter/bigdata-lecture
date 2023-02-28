@@ -4,9 +4,10 @@ subtitle: 'Lecture 7:<br>Cleaning and Transformation of Big Data'
 author: "Prof. Dr. Ulrich Matter"
 output:
   ioslides_presentation:
-    css: ../style/ioslides.css
+    css: ../style/ioslides_unilu.css
     template: ../style/nologo_template.html
-logo: ../img/logo.png
+  beamer_presentation: default
+logo: ../img/logo_unilu2.png
 bibliography: ../references/bigdata.bib
 ---
 
@@ -21,16 +22,8 @@ library(knitr)
 
 
  
-# Recap 
 
-## Recap: Database, Datawarehouse, Datalake
-
-- Local RDBMS (e.g. SQLite) for data analytics projects: efficient/fast access to data, hardly any memory-intense operations for filtering, joining, selecting data.
-- Flexible (also short-term) data storage solutions in the cloud.
-- AWS RDS, Google BigQuery, AWS S3
-
-
-## Goals for today
+## Goals for this session
 
 1. Know basic strategies for out-of-memory operations in R.
 2. Know basic tools for local big data cleaning and transformation in R.
@@ -47,11 +40,11 @@ library(knitr)
 - Processes slow down due to swapping.
 - Default (OS) usage of virtual memory concept is not necessarily optimized for data analysis tasks.
 
-## Virtual memory review
+## Virtual memory review  {data-background=#ffffff}
 
 
-```{r vm1, echo=FALSE, out.width = "30%", fig.align='center', purl=FALSE}
-include_graphics("../img/03_virtualmemory_dark.png")
+```{r vm1, echo=FALSE, out.width = "40%", fig.align='center', purl=FALSE}
+include_graphics("../img/virtual_memory.png")
 ```
 
 
@@ -257,41 +250,6 @@ flights2
 
 ```
 
-
-
-# Cleaning and Transformation 
-
----
-
-```{r pipeline, echo=FALSE, out.width = "95%", fig.align='center', purl=FALSE}
-include_graphics("../img/05_data_science_pipeline.png")
-```
-
-
-
-## Typical tasks (independent of data set size)
-
-- Normalize/standardize.
-- Code additional variables (indicators, strings to categorical, etc.).
-- Remove, add covariates.
-- Merge data sets.
-- Set data types.
-
-## Typical workflow
-
-1. Import raw data.
-2. Clean/transform.
-3. Store for analysis.
-     - Write to file.
-     - Write to database.
-     
-## Bottlenecks
-
-- RAM:
-     - Raw data does not fit into memory.
-     - Transformations enlarge RAM allocation (copying).
-- Mass Storage: Reading/Writing
-- CPU: Parsing (data types)
 
 
 
