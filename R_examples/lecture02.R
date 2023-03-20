@@ -36,6 +36,9 @@ plot(benchmarking, type = "boxplot")
 
 
 
+
+
+
 # profiling: profvis example -----
 
 
@@ -163,7 +166,7 @@ ggplot(plotdata, aes(x=time_elapsed, y=Implementation)) +
 # get a list of all file-paths
 textfiles <- list.files("data/twitter_texts", full.names = TRUE)
 # prepare loop
-all_texts <- lapply(textfiles, read.csv)
+all_texts <- lapply(textfiles, fread)
 # combine all in one data frame
 all_texts_df <- do.call("rbind", all_texts)
 
@@ -205,9 +208,9 @@ econ$year <- lubridate::year(econ$date)
 inflation$year <- lubridate::year(inflation$date)
 
 # create final output
-years <- unique(econ2$year)
+years <- unique(econ$year)
 averages <- sapply(years, FUN = function(x) {
-     mean(econ2[econ2$year==x,"unemploy"]/econ2[econ2$year==x,"pop"])*100
+     mean(econ[econ$year==x,"unemploy"]/econ[econ$year==x,"pop"])*100
      
 } )
 unemp <- data.frame(year=years,
@@ -220,5 +223,5 @@ output<- merge(unemp, inflation[, c("year", "inflation_percent")], by="year")
 
 # inspect output
 head(output)
-
+# 
 

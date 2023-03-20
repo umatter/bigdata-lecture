@@ -1,13 +1,26 @@
-# to install use
- devtools::install_github("cran/SparkR")
+# SPARK: first steps ------------------------------
+# to install the R packages use
+devtools::install_github("cran/SparkR")
+# and
+install.packages("sparklyr")
+# (we will work with both SparkR and sparklyr)
 
+# install Spark
+sparklyr::spark_install()
+
+# check where Spark is installed on your system
+localpath <- sparklyr::spark_install_find()$packageLocalPath
+
+
+
+# Start a Spark session with SparkR
 # load packages
 library(SparkR)
 
 # start session
-sparkR.session()
-# of if need be, specify 
-# sparkR.session(sparkHome = "/home/umatter/.cache/spark/spark-3.1.2-bin-hadoop2.7")
+#sparkR.session()
+# or if need be, specify 
+sparkR.session(sparkHome = localpath)
 
 # Import data and create a SparkDataFrame (a distributed collection of data, RDD)
 flights <- read.df("data/flights.csv", source = "csv", header="true")
@@ -58,7 +71,7 @@ delays
 # load packages
 library(SparkR)
 # start session
-sparkR.session()
+sparkR.session("/home/umatter/spark/spark-3.3.2-bin-hadoop2")
 # read data 
 flights <- read.df("data/flights.csv", source = "csv", header="true")
 

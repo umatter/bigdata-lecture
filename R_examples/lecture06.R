@@ -42,8 +42,9 @@ delays_df
 
 
 
+## Big Query ----------------------
 
-install.packages("bigrquery")
+# install.packages("bigrquery")
 # load packages, credentials
 library(data.table)
 library(DBI)
@@ -134,3 +135,11 @@ LIMIT 10;
 # issue query
 delays_df <- dbGetQuery(con_rds, delay_query)
 delays_df
+
+
+
+
+
+# AWS S3
+
+
